@@ -1,5 +1,7 @@
+import { ObjectId } from "mongodb";
+
 export interface Blob {
-  _id: string; // TODO: ObjectId
+  _id: ObjectId;
   contentType: string;
   created: Date;
   extension: string;
