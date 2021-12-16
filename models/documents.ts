@@ -1,17 +1,14 @@
-import { ObjectId } from "mongodb";
-
-export interface Blob {
-  _id: ObjectId;
+export interface BlobDocument {
+  _id: string;
   contentType: string;
   created: Date;
-  extension: string;
-  fileName: string;
+  paths: string[];
   lastModified: Date;
-  lastViewed: Date;
+  lastViewed?: Date;
   length: number;
   level: Level,
   tags: string[],
-  paths: string[],
+  dirs: string[],
   bucket: string
 }
 
