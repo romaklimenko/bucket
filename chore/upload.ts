@@ -6,6 +6,7 @@ import dotenv from 'dotenv'; dotenv.config();
 import { MongoClient } from 'mongodb';
 import { Storage } from '@google-cloud/storage';
 import deleteEmpty from 'delete-empty';
+import contentType from '../lib/contentType';
 
 const uploadDir = path.resolve(process.env.UPLOAD_DIR!);
 
@@ -25,7 +26,6 @@ async function main() {
     }
   
     const filePath = path.parse(file);
-    console.info('filePath', filePath);
   
     const blobDocument = buildBlobDocument(file);
 
@@ -43,7 +43,6 @@ async function main() {
       
       await blobsCollection.updateOne({ _id: blobDocument._id }, { $addToSet: { paths: blobDocument.paths[0], dirs: blobDocument.dirs[0] } });
     } else {
-      console.info('Blob does not exist in database.');
       await bucket.upload(file, {
         destination: blobDocument._id,
         metadata: {
@@ -52,14 +51,16 @@ async function main() {
       });
 
       await blobsCollection.insertOne(blobDocument);
-      fs.unlinkSync(file);
-      try {
-        await deleteEmpty(filePath.dir);
-      } catch (error) {
-        console.error(error);
-      }
     }
-  
+
+    fs.unlinkSync(file);
+      
+    try {
+      await deleteEmpty(filePath.dir);
+    } catch (error) {
+      console.error(error);
+    }
+
     console.info('blob', blobDocument);
   }
 
@@ -119,22 +120,4 @@ function readdir(dir: string): string[] {
     }
   }
   return result;
-}
-
-function contentType(ext: string): string {
-  switch (ext) {
-    case '.gif':
-      return 'image/gif';
-    case '.jpg':
-    case '.jpeg':
-      return 'image/jpeg';
-    case '.png':
-      return 'image/png';
-    case '.webp':
-      return 'image/webp';
-    case '.mp4':
-    case '.gifv':
-      return 'video/mp4';
-  }
-  return 'application/octet-stream';
 }
