@@ -6,7 +6,7 @@ import dotenv from 'dotenv'; dotenv.config();
 import { MongoClient } from 'mongodb';
 import { Storage } from '@google-cloud/storage';
 import deleteEmpty from 'delete-empty';
-import contentType from '../lib/contentType';
+import contentType from '../lib/utils';
 
 const uploadDir = path.resolve(process.env.UPLOAD_DIR!);
 

@@ -1,7 +1,7 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import { getBlobsCollection } from "../../../../lib/mongo";
 import { Storage } from '@google-cloud/storage';
-import contentType from "../../../../lib/contentType";
+import contentType from "./../../../../lib/utils";
 import path from "path";
 
 const gcs_storage = new Storage();

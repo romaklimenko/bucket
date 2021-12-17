@@ -41,10 +41,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     .limit(50)).toArray());
 
   result.sort((a, b) => {
-    if (a.dirs[0] === b.dirs[0]) {
-      return a.created > b.created ? -1 : 1;
-    }
-    return a.dirs[0] === b.dirs[0] ? -1 : 1;
+    return a.paths[0] > b.paths[0] ? -1 : 1;
   });
 
   res.status(200).json(result);

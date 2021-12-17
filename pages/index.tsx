@@ -14,6 +14,7 @@ const Home: NextPage = () => {
 
       <main className={styles.main}>
         <h1 className={styles.title}>Hello!</h1>
+        <a href="/sample">Sample</a>
       </main>
 
       <footer className={styles.footer}>
