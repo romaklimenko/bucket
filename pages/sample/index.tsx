@@ -29,6 +29,11 @@ export default class Sample extends React.Component<Props, State> {
 
   componentDidMount() {
     this.next();
+    document.addEventListener("keydown", this.handleHotKey as any, true);
+  }
+
+  componentWillUnmount() {
+    document.removeEventListener("keydown", this.handleHotKey as any, true);
   }
 
   render(): ReactNode {
@@ -42,17 +47,20 @@ export default class Sample extends React.Component<Props, State> {
         alt={this.state.current.paths[0]}
       />
     ) : (
-      <span style={{ height: "100vh" }} className=".placeholder-glow">Loading...</span>
+      <span
+        style={{ height: "100vh", width: "100%" }}
+      >
+        Loading...
+      </span>
     );
 
-    const paths =
-      this.state.current
-        ? this.state.current.paths.map((path, i) => (
-            <span key={i} className="badge bg-primary">
-              {path}
-            </span>
-          ))
-        : null;
+    const paths = this.state.current
+      ? this.state.current.paths.map((path, i) => (
+          <span key={i} className="badge bg-primary">
+            {path}
+          </span>
+        ))
+      : null;
 
     const infoBadges = this.state.showInfo ? (
       <>
@@ -75,8 +83,6 @@ export default class Sample extends React.Component<Props, State> {
       <div
         className="container-fluid"
         style={{ backgroundColor: "#1e1e1e", color: "#fff" }}
-        onKeyDown={this.handleHotKey}
-        tabIndex={-1}
       >
         <Head>
           <title>Sample Gallery</title>
@@ -86,7 +92,7 @@ export default class Sample extends React.Component<Props, State> {
 
         <div className="row">
           <div className="col-md-12">{media}</div>
-          <div style={{ position: "fixed", top: 10, right: 10, width: 'auto' }}>
+          <div style={{ position: 'fixed', top: 10, right: 10, width: "auto" }}>
             <span className={levelBadgeClass(this.state.current?.level)}>
               {level(this.state.current?.level)}
             </span>{" "}
@@ -95,15 +101,27 @@ export default class Sample extends React.Component<Props, State> {
             </span>{" "}
             {infoBadges}
           </div>
-          <div style={{ position: "fixed", bottom: 10, right: 10, width: 'auto' }}>
+          <div
+            style={{ position: 'fixed', bottom: 10, right: 10, width: "auto" }}
+          >
             {paths}
+          </div>
+          <div
+            style={{ position: 'fixed', bottom: 10, left: 10, width: "auto" }}
+          >
+            <span className="badge bg-secondary">
+              &larr; {this.state.history.length}
+            </span>
+            <span className="badge bg-secondary">
+              {this.state.next.length} &rarr;
+            </span>
           </div>
         </div>
       </div>
     );
   }
 
-  async handleHotKey(e: KeyboardEvent<HTMLDivElement>) {
+  async handleHotKey(e: KeyboardEvent) {
     switch (e.code) {
       case "ArrowLeft":
       case "KeyA":
@@ -154,7 +172,6 @@ export default class Sample extends React.Component<Props, State> {
       this.setState({ current: next.pop()! });
       this.setState({ next });
     }, 0);
-    console.log('next', 'history', this.state.history, 'current', this.state.current, 'next', this.state.next);
   }
 
   async prev() {
@@ -167,7 +184,6 @@ export default class Sample extends React.Component<Props, State> {
     const history = this.state.history;
     this.setState({ current: history.pop()! });
     this.setState({ history });
-    console.log('prev', 'history', this.state.history, 'current', this.state.current, 'next', this.state.next);
   }
 
   async up() {
