@@ -1,7 +1,7 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import { getBlobsCollection } from "../../../../lib/mongo";
 import { Storage } from '@google-cloud/storage';
-import contentType from "./../../../../lib/utils";
+import { contentType } from "./../../../../lib/utils";
 import path from "path";
 
 const gcs_storage = new Storage();
@@ -40,9 +40,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     })
     .pipe(res);
 
-  // blobsCollection.updateOne({ _id: req.params.id },
-  //   {
-  //       $set: { },
-  //       $currentDate: { LastAccessed: true }
-  //   });
+  blobsCollection.updateOne({ _id: id },
+    {
+      $set: {},
+      $currentDate: { lastViewed: true }
+    });
 }

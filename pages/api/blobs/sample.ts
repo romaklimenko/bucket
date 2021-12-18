@@ -26,14 +26,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // 50 existing files (level 1)
   result.push(...await (await blobsCollection
     .aggregate<BlobDocument>([
-      { $match: { level: 1 } },
+      { $match: { level: 1, lastViewed: { $lt: new Date(new Date().getTime() - 7 * 24 * 60 * 60 * 1000) } } },
       { $sample: { size: 50 } }
     ])).toArray());
+
   // 50 largest new files
   result.push(...await (await blobsCollection
     .find<BlobDocument>({ level: 0 })
     .sort({ length: -1 })
     .limit(50)).toArray());
+
   // 50 smallest new files
   result.push(...await (await blobsCollection
     .find<BlobDocument>({ level: 0 })

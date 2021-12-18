@@ -1,4 +1,4 @@
-import {BlobDocument, Level} from '../models/documents';
+import { BlobDocument, Level } from '../models/documents';
 import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
@@ -6,7 +6,7 @@ import dotenv from 'dotenv'; dotenv.config();
 import { MongoClient } from 'mongodb';
 import { Storage } from '@google-cloud/storage';
 import deleteEmpty from 'delete-empty';
-import contentType from '../lib/utils';
+import { contentType } from '../lib/utils';
 
 const uploadDir = path.resolve(process.env.UPLOAD_DIR!);
 
@@ -19,28 +19,28 @@ async function main() {
   const blobsCollection = db.collection<BlobDocument>('blobs');
 
   console.info(`Uploading files from ${uploadDir}`);
-  
+
   for (const file of readdir(uploadDir)) {
     if (deleteIfIgnored(file)) {
       continue;
     }
-  
+
     const filePath = path.parse(file);
-  
+
     const blobDocument = buildBlobDocument(file);
 
     if (blobDocument.contentType === 'application/octet-stream') {
       continue;
     }
-  
+
     const existingBlobDocument = await blobsCollection.findOne({ _id: blobDocument._id });
     if (existingBlobDocument) {
       console.info('Blob already exists in database.');
-      
+
       if (existingBlobDocument.length !== blobDocument.length) {
         throw new Error(`Collision! Blob ${blobDocument._id} has different size!`);
       }
-      
+
       await blobsCollection.updateOne({ _id: blobDocument._id }, { $addToSet: { paths: blobDocument.paths[0], dirs: blobDocument.dirs[0] } });
     } else {
       await bucket.upload(file, {
@@ -54,7 +54,7 @@ async function main() {
     }
 
     fs.unlinkSync(file);
-      
+
     try {
       await deleteEmpty(filePath.dir);
     } catch (error) {
@@ -93,7 +93,7 @@ function buildBlobDocument(file: string): BlobDocument {
     length: fs.statSync(file).size,
     level: Level.New,
     tags: [],
-    dirs: [ filePath.dir.replace(uploadDir, '') ],
+    dirs: [filePath.dir.replace(uploadDir, '')],
     bucket: process.env.BUCKET_STANDARD!
   };
 }
