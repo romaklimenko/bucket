@@ -22,3 +22,10 @@ export async function get(id: string): Promise<BlobDocument> {
   const json = await response.json() as BlobDocument;
   return json;
 }
+
+export async function trash(id: string): Promise<number> {
+  const response = await fetch(`/api/blobs/trash/${id}`, {
+    method: 'DELETE'
+  });
+  return (await response.json()).modifiedCount;
+}

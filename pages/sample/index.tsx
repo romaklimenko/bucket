@@ -1,7 +1,7 @@
 import Head from "next/head";
 import { KeyboardEvent, ReactNode } from "react";
 import styles from "../../styles/Sample.module.css";
-import { get, put, sample } from "../../lib/api";
+import { get, put, sample, trash } from "../../lib/api";
 import React, { useState } from "react";
 import { BlobDocument } from "../../models/documents";
 import { level, levelBadgeClass, size } from "../../lib/utils";
@@ -96,7 +96,7 @@ export default class Sample extends React.Component<Props, State> {
             <span className={levelBadgeClass(this.state.current?.level)}>
               {level(this.state.current?.level)}
             </span>{" "}
-            <span className="badge bg-secondary">
+            <span className={levelBadgeClass(this.state.current?.level)}>
               {size(this.state.current?.length ?? 0)}
             </span>{" "}
             {infoBadges}
@@ -142,6 +142,15 @@ export default class Sample extends React.Component<Props, State> {
       case "KeyS":
         await this.down();
         break;
+      case "KeyT":
+        const dirs = this.state.current?.dirs.filter(d => d !== '').map(d => `"${d}"`).join(', ');
+        if (this.state.current && confirm(`This will trash ${dirs}. Are you sure?`)) {
+          const modifiedCount = await trash(this.state.current._id!);
+          this.setState({ current: await get(this.state.current._id) });
+          alert(`Trashed ${modifiedCount} documents`);
+          this.next();
+        }
+        break;
       default:
         break;
     }
@@ -155,7 +164,7 @@ export default class Sample extends React.Component<Props, State> {
   }
 
   async next() {
-    if (this.state.next.length < 10) {
+    if (this.state.next.length < 1) {
       await this.more();
     }
     if (this.state.next.length < 1) {
@@ -168,10 +177,14 @@ export default class Sample extends React.Component<Props, State> {
     }
     const next = this.state.next;
     this.setState({ current: null });
-    setTimeout(() => {
-      this.setState({ current: next.pop()! });
-      this.setState({ next });
-    }, 0);
+    const currentId = next.pop()?._id;
+    if (currentId) {
+      const current = await get(currentId);
+      setTimeout(() => {
+        this.setState({ current });
+        this.setState({ next });
+      }, 0);
+    }
   }
 
   async prev() {
@@ -191,9 +204,12 @@ export default class Sample extends React.Component<Props, State> {
     if (!current) {
       return;
     }
-    current.level = Math.min(1, current.level + 1);
+    current.level = +1;
     this.setState({ current });
     await put(current);
+    setTimeout(() => {
+      this.next();
+    }, 500);
   }
 
   async down() {
@@ -201,8 +217,11 @@ export default class Sample extends React.Component<Props, State> {
     if (!current) {
       return;
     }
-    current.level = Math.max(-1, current.level - 1);
+    current.level = -1;
     this.setState({ current });
     await put(current);
+    setTimeout(() => {
+      this.next();
+    }, 500);
   }
 }
