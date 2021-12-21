@@ -1,6 +1,7 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import { getBlobsCollection } from "../../../lib/mongo";
-import { BlobDocument } from "../../../models/documents";
+import { addDays } from "../../../lib/utils";
+import { BlobDocument, Level } from "../../../models/documents";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const blobsCollection = await getBlobsCollection();
@@ -16,38 +17,44 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   // TODO: this must be configurable
 
-  // 50 new files (level 0)
+  // 25 new files (level 0)
   result.push(...await (await blobsCollection
     .aggregate<BlobDocument>([
-      { $match: { level: 0 } },
-      { $sample: { size: 50 } }
+      { $match: { level: Level.New } },
+      { $sample: { size: 25 } }
     ])).toArray());
 
   // 25 new files from directories that also have trashed files
-  const dirsWithTrashedBlobDocuments = (await blobsCollection.distinct('dirs', { level: { $lte: -1 } }))
-    .filter(x => x !== '');
+  const dirsWithTrashedBlobDocuments = (
+    await blobsCollection
+      .distinct(
+        'dirs',
+        {
+          level: { $lte: Level.Trashed },
+          lastModified: { $gt: addDays(-1) } }))
+      .filter(dir => dir !== '');
   result.push(...await (await blobsCollection
     .aggregate<BlobDocument>([
-      { $match: { dirs: { $in: dirsWithTrashedBlobDocuments }, level: { $gte: 0 } } },
+      { $match: { dirs: { $in: dirsWithTrashedBlobDocuments }, level: { $gte: Level.New } } },
       { $sample: { size: 25 } }
     ])).toArray());
 
   // 25 existing files (level 1)
   result.push(...await (await blobsCollection
     .aggregate<BlobDocument>([
-      { $match: { level: 1, lastViewed: { $lt: new Date(new Date().getTime() - 7 * 24 * 60 * 60 * 1000) } } },
+      { $match: { level: Level.Approved, lastViewed: { $lt: addDays(-7) } } },
       { $sample: { size: 25 } }
     ])).toArray());
 
   // 25 largest new files
   result.push(...await (await blobsCollection
-    .find<BlobDocument>({ level: 0 })
+    .find<BlobDocument>({ level: Level.New })
     .sort({ length: -1 })
     .limit(25)).toArray());
 
   // 25 smallest new files
   result.push(...await (await blobsCollection
-    .find<BlobDocument>({ level: 0 })
+    .find<BlobDocument>({ level: Level.New })
     .sort({ length: 1 })
     .limit(25)).toArray());
 

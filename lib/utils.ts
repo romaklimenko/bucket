@@ -60,3 +60,9 @@ export function levelBadgeClass(level?: Level) {
       return 'badge bg-danger';
   }
 }
+
+export function addDays(days: number) {
+  const result = new Date();
+  result.setDate(result.getDate() + days);
+  return result;
+}

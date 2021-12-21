@@ -6,6 +6,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "cleanup": "npx ts-node --skip-project --compiler-options '{ \"isolatedModules\": false }' chore/cleanup.ts",
     "upload": "npx ts-node --skip-project --compiler-options '{ \"isolatedModules\": false }' chore/upload.ts"
   },
   "dependencies": {
