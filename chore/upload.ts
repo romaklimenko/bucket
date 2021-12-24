@@ -29,7 +29,7 @@ async function main() {
 
     const blobDocument = buildBlobDocument(file);
 
-    if (blobDocument.contentType === 'application/octet-stream') {
+    if (!blobDocument) {
       continue;
     }
 
@@ -75,8 +75,14 @@ main().catch(console.error);
 
 ///////////////////////////////////////////////////////////////////////////////
 
-function buildBlobDocument(file: string): BlobDocument {
+function buildBlobDocument(file: string): BlobDocument | null {
   const filePath = path.parse(file);
+  const fileContentType = contentType(filePath.ext);
+  
+  if (fileContentType === 'application/octet-stream') {
+    return null;
+  }
+
   const now = new Date();
 
   const hash = crypto

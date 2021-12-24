@@ -2,7 +2,7 @@ import { Level } from "../models/documents";
 
 export function contentType(ext: string) {
 
-  switch (ext) {
+  switch (ext.toLowerCase()) {
     case '.gif':
       return 'image/gif';
     case '.jpg':
@@ -12,9 +12,6 @@ export function contentType(ext: string) {
       return 'image/png';
     case '.webp':
       return 'image/webp';
-    case '.mp4':
-    case '.gifv':
-      return 'video/mp4';
   }
   return 'application/octet-stream';
 };

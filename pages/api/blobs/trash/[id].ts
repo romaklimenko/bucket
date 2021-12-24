@@ -1,6 +1,6 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import { getBlobsCollection } from "../../../../lib/mongo";
-import { BlobDocument } from "../../../../models/documents";
+import { Level } from "../../../../models/documents";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const blobsCollection = await getBlobsCollection();
@@ -26,8 +26,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const result = await blobsCollection.updateMany(
     {
-      dirs: { $in: blobDocument?.dirs.filter(x => x !== '') },
-      level: { $gte: 0, $lt: 1 }
+      $or: [
+        { _id: id, level: { $gte: Level.New } },
+        {
+          dirs: { $in: blobDocument?.dirs.filter(x => x !== '') },
+          lastViewed: { $exists: false },
+          level: { $gte: Level.New }
+        }
+      ]
     },
     {
       $set: { level: -1 },
