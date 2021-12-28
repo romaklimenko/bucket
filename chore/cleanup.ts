@@ -50,7 +50,7 @@ async function main() {
   }
 
   const archiveBlob = async (blobDocument: BlobDocument) => {
-    console.log(`\x1b[33mARCHIVE\x1b[0m ${blobDocument._id}`, blobDocument.paths);
+    console.log(`\x1b[32mARCHIVE\x1b[0m ${blobDocument._id}`, blobDocument.paths);
     await standardBucket
       .file(blobDocument._id)
       .copy(archiveBucket.file(blobDocument._id));
@@ -72,6 +72,14 @@ async function main() {
   }
 
   await Promise.all(promises);
+
+  const nextBlobDocument = await blobsCollection
+    .find({ level: Level.New })
+    .sort({ created: 1 })
+    .limit(1)
+    .next();
+
+  console.info('\x1b[33mNEXT\x1b[0m', nextBlobDocument?.paths, nextBlobDocument?.created);
 
   await client.close();
 }

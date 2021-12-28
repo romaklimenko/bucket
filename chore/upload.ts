@@ -18,7 +18,9 @@ async function main() {
   const db = client.db(process.env.MONGODB_DB!);
   const blobsCollection = db.collection<BlobDocument>('blobs');
 
-  const createdLastMonth = await blobsCollection.countDocuments({ created: { $gt: addDays(-30) } });
+  const createdLastMonth = await blobsCollection.countDocuments({
+    created: { $gt: addDays(-30) },
+    level: { $gte: Level.Trashed } });
   const monthlyUploadThreshold = parseInt(process.env.MONTHLY_UPLOAD_THRESHOLD!, 10);
   let remainingUploads = monthlyUploadThreshold - createdLastMonth;
 
