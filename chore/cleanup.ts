@@ -17,12 +17,10 @@ async function main() {
     { level: Level.New, created: { $lt: addDays(-7) } },
     { $set: { level: Level.Approved } });
 
-  console.info('Deleting trashed files...');
-
   const trashedBlobs = await blobsCollection.find({ level: Level.Trashed }).toArray();
 
   const deleteBlob = async (blobDocument: BlobDocument) => {
-    console.log(`Deleting ${blobDocument._id}`);
+    console.log(`\x1b[31mDELETE\x1b[0m ${blobDocument._id}`, blobDocument.paths);
     try {
       if (blobDocument.bucket === process.env.BUCKET_STANDARD) {
         await standardBucket.file(blobDocument._id).delete();
@@ -52,7 +50,7 @@ async function main() {
   }
 
   const archiveBlob = async (blobDocument: BlobDocument) => {
-    console.log(`Archiving ${blobDocument._id}`);
+    console.log(`\x1b[33mARCHIVE\x1b[0m ${blobDocument._id}`, blobDocument.paths);
     await standardBucket
       .file(blobDocument._id)
       .copy(archiveBucket.file(blobDocument._id));
@@ -74,8 +72,6 @@ async function main() {
   }
 
   await Promise.all(promises);
-
-  console.info('Cleanup complete.');
 
   await client.close();
 }

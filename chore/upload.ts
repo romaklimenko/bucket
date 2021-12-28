@@ -6,7 +6,7 @@ import dotenv from 'dotenv'; dotenv.config();
 import { MongoClient } from 'mongodb';
 import { Storage } from '@google-cloud/storage';
 import deleteEmpty from 'delete-empty';
-import { contentType } from '../lib/utils';
+import { addDays, contentType } from '../lib/utils';
 
 const uploadDir = path.resolve(process.env.UPLOAD_DIR!);
 
@@ -18,9 +18,16 @@ async function main() {
   const db = client.db(process.env.MONGODB_DB!);
   const blobsCollection = db.collection<BlobDocument>('blobs');
 
-  console.info(`Uploading files from ${uploadDir}`);
+  const createdLastMonth = await blobsCollection.countDocuments({ created: { $gt: addDays(-30) } });
+  const monthlyUploadThreshold = parseInt(process.env.MONTHLY_UPLOAD_THRESHOLD!, 10);
+  let remainingUploads = monthlyUploadThreshold - createdLastMonth;
+
+  console.warn('For the last 30 days, you created', createdLastMonth, 'blobs.');
+
+  console.info('Upload directory:', uploadDir);
 
   for (const file of readdir(uploadDir)) {
+
     if (deleteIfIgnored(file)) {
       continue;
     }
@@ -43,6 +50,15 @@ async function main() {
 
       await blobsCollection.updateOne({ _id: blobDocument._id }, { $addToSet: { paths: blobDocument.paths[0], dirs: blobDocument.dirs[0] } });
     } else {
+      
+      if (remainingUploads-- <= 0) {
+        console.log(remainingUploads)
+        console.error('You have already created enough blobs in the last 30 days. Aborting.');
+        break;
+      } else {
+        console.warn(`Remaining uploads: ${remainingUploads}`);
+      }
+
       await bucket.upload(file, {
         destination: blobDocument._id,
         metadata: {
@@ -63,8 +79,6 @@ async function main() {
 
     console.info('blob', blobDocument);
   }
-
-  console.info('Upload complete.');
 
   await client.close();
 
