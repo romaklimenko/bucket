@@ -6,7 +6,10 @@ import dotenv from 'dotenv'; dotenv.config();
 import { MongoClient } from 'mongodb';
 import { Storage } from '@google-cloud/storage';
 import deleteEmpty from 'delete-empty';
+import { loadConfig } from '../lib/server-utils';
 import { addDays, contentType } from '../lib/utils';
+
+const config = loadConfig();
 
 const uploadDir = path.resolve(process.env.UPLOAD_DIR!);
 
@@ -28,13 +31,16 @@ async function main() {
 
   console.info('Upload directory:', uploadDir);
 
+  await blobsCollection.deleteMany({
+    level: Level.Deleted,
+    lastModified: { $lt: addDays(-30) }
+  });
+
   for (const file of readdir(uploadDir)) {
 
     if (deleteIfIgnored(file)) {
       continue;
     }
-
-    const filePath = path.parse(file);
 
     const blobDocument = buildBlobDocument(file);
 
@@ -53,12 +59,12 @@ async function main() {
       await blobsCollection.updateOne({ _id: blobDocument._id }, { $addToSet: { paths: blobDocument.paths[0], dirs: blobDocument.dirs[0] } });
     } else {
       
-      if (remainingUploads-- <= 0) {
-        console.log(remainingUploads)
-        console.error('You have already created enough blobs in the last 30 days. Aborting.');
+      if (remainingUploads <= 0) {
+        console.info('Remaining uploads:', remainingUploads);
+        console.error(`You have already created ${monthlyUploadThreshold} blobs in the last 30 days. Aborting.`);
         break;
       } else {
-        console.warn(`Remaining uploads: ${remainingUploads}`);
+        console.info(`Remaining uploads: ${remainingUploads--}`);
       }
 
       await bucket.upload(file, {
@@ -74,7 +80,7 @@ async function main() {
     fs.unlinkSync(file);
 
     try {
-      await deleteEmpty(filePath.dir);
+      await deleteEmpty(uploadDir);
     } catch (error) {
       console.error(error);
     }
@@ -121,12 +127,15 @@ function buildBlobDocument(file: string): BlobDocument | null {
 }
 
 function deleteIfIgnored(file: string): boolean {
-  const filePath = path.parse(file);
-  if (filePath.base === '.DS_Store') {
-    console.warn(`Deleting ${file}`);
-    fs.unlinkSync(file);
-    return true;
+  for (const deleteByFilenamePattern of config.deleteByFilenamePatterns) {
+    const filePath = path.parse(file);
+    if (filePath.base.match(deleteByFilenamePattern)) {
+      console.warn(`\x1b[31mDELETE\x1b[0m "${file.replace(uploadDir, '')}" because it matches "${deleteByFilenamePattern}"`);
+      fs.unlinkSync(file);
+      return true;
+    }
   }
+
   return false;
 }
 

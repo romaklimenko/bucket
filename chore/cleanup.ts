@@ -17,7 +17,10 @@ async function main() {
     { level: Level.New, created: { $lt: addDays(-7) } },
     { $set: { level: Level.Approved } });
 
-  const trashedBlobs = await blobsCollection.find({ level: Level.Trashed }).toArray();
+  const trashedBlobs = await blobsCollection
+    .find({ level: Level.Trashed })
+    .sort({ created: 1 })
+    .toArray();
 
   const deleteBlob = async (blobDocument: BlobDocument) => {
     console.log(`\x1b[31mDELETE\x1b[0m ${blobDocument._id}`, blobDocument.paths);
@@ -62,7 +65,10 @@ async function main() {
       { $set: { bucket: process.env.BUCKET_ARCHIVE!, level: Level.Approved } });
   }
 
-  const approvedBlobs = await blobsCollection.find({ level: Level.Approved, bucket: process.env.BUCKET_STANDARD! }).toArray();
+  const approvedBlobs = await blobsCollection
+    .find({ level: Level.Approved, bucket: process.env.BUCKET_STANDARD! })
+    .sort({ created: 1 })
+    .toArray();
   for (const blobDocument of approvedBlobs) {
     promises.push(archiveBlob(blobDocument));
     if (promises.length >= threadsCount) {
