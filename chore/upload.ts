@@ -8,6 +8,8 @@ import { Storage } from '@google-cloud/storage';
 import deleteEmpty from 'delete-empty';
 import { loadConfig } from '../lib/server-utils';
 import { addDays, contentType } from '../lib/utils';
+import readdirp from 'readdirp';
+import bytes from 'bytes';
 
 const config = loadConfig();
 
@@ -21,22 +23,52 @@ async function main() {
   const db = client.db(process.env.MONGODB_DB!);
   const blobsCollection = db.collection<BlobDocument>('blobs');
 
-  const createdLastMonth = await blobsCollection.countDocuments({
-    created: { $gt: addDays(-30) },
-    level: { $gte: Level.Trashed } });
-  const monthlyUploadThreshold = parseInt(process.env.MONTHLY_UPLOAD_THRESHOLD!, 10);
-  let remainingUploads = monthlyUploadThreshold - createdLastMonth;
+  const deleteThresholdPeriodInDays = 7;
+  const uploadThreshold = parseInt(process.env.UPLOAD_THRESHOLD!, 10);
 
-  console.warn('For the last 30 days, you created', createdLastMonth, 'blobs.');
+  const newDayStartsAtHours = 22;
+
+  const largeFileSize = bytes('1MB');
+
+  const createdLastPeriod = await blobsCollection.countDocuments({
+    created: {
+      $gte: new Date().getHours() < newDayStartsAtHours ? new Date(new Date().setHours(newDayStartsAtHours - 24, 0, 0, 0)) : new Date(new Date().setHours(newDayStartsAtHours, 0, 0, 0))
+    },
+    level: { $gte: Level.Trashed },
+    length: { $lte: largeFileSize }
+  });
+
+  let remainingUploads = uploadThreshold - createdLastPeriod;
+
+  console.warn(
+    'You created', createdLastPeriod, 'blobs today.',
+    remainingUploads, 'uploads are allowed today.');
 
   console.info('Upload directory:', uploadDir);
 
   await blobsCollection.deleteMany({
     level: Level.Deleted,
-    lastModified: { $lt: addDays(-30) }
+    lastModified: { $lt: addDays(deleteThresholdPeriodInDays * -1) }
   });
 
-  for (const file of readdir(uploadDir)) {
+  let warnedAboutRemainingUploads = false;
+
+  let lastDir = '';
+
+  const files = [];
+
+  for await (const entry of readdirp(uploadDir)) {
+    files.push(entry.fullPath);
+  }
+
+  files.sort((a, b) => a.toLowerCase() > b.toLowerCase() ? 1 : -1);
+
+  let filesLeft = files.length;
+
+  const forcedRegexPattern = !!process.env.FORCED_REGEX_PATTERN! ? new RegExp(process.env.FORCED_REGEX_PATTERN!, 'gi') : null;
+
+  for await (const file of files) {
+    filesLeft--;
 
     if (deleteIfIgnored(file)) {
       continue;
@@ -44,7 +76,7 @@ async function main() {
 
     const blobDocument = buildBlobDocument(file);
 
-    if (!blobDocument) {
+    if (!blobDocument || blobDocument.length === 0) {
       continue;
     }
 
@@ -58,13 +90,27 @@ async function main() {
 
       await blobsCollection.updateOne({ _id: blobDocument._id }, { $addToSet: { paths: blobDocument.paths[0], dirs: blobDocument.dirs[0] } });
     } else {
-      
+
       if (remainingUploads <= 0) {
-        console.info('Remaining uploads:', remainingUploads);
-        console.error(`You have already created ${monthlyUploadThreshold} blobs in the last 30 days. Aborting.`);
-        break;
+        if (!warnedAboutRemainingUploads) {
+          console.info('Remaining allowed uploads:', remainingUploads, `(${filesLeft} files left)`);
+          console.error(`You have already created ${uploadThreshold} blobs in the last 24 hours.`);
+          warnedAboutRemainingUploads = true;
+        }
+
+        const filesInDir = (await fs.promises.readdir(path.parse(file).dir, { withFileTypes: true }))
+          .filter(dirent => dirent.isFile())
+          .length;
+
+        if (blobDocument.length < largeFileSize && filesInDir > 5 && (!forcedRegexPattern || !blobDocument.dirs[0].match(forcedRegexPattern))) {
+          // console.log(blobDocument.paths[0], 'doesn\'t match', process.env.FORCED_REGEX_PATTERN);
+          continue;
+        }
       } else {
-        console.info(`Remaining uploads: ${remainingUploads--}`);
+        if (blobDocument.length <= largeFileSize) {
+          remainingUploads--;
+        }
+        console.info(`Remaining uploads: ${remainingUploads}`, `(${filesLeft} files left)`);
       }
 
       await bucket.upload(file, {
@@ -79,13 +125,17 @@ async function main() {
 
     fs.unlinkSync(file);
 
-    try {
-      await deleteEmpty(uploadDir);
-    } catch (error) {
-      console.error(error);
+    if (blobDocument.dirs[0] !== lastDir) {
+      lastDir = blobDocument.dirs[0];
+      try {
+        await deleteEmpty(uploadDir);
+        console.log('Deleted empty directories.');
+      } catch (error) {
+        console.error(error);
+      }
     }
 
-    console.info('blob', blobDocument);
+    console.info('blob', { ...blobDocument, length: bytes(blobDocument.length) });
   }
 
   await client.close();
@@ -100,7 +150,7 @@ main().catch(console.error);
 function buildBlobDocument(file: string): BlobDocument | null {
   const filePath = path.parse(file);
   const fileContentType = contentType(filePath.ext);
-  
+
   if (fileContentType === 'application/octet-stream') {
     return null;
   }

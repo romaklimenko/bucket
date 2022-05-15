@@ -63,3 +63,12 @@ export function addDays(days: number) {
   result.setDate(result.getDate() + days);
   return result;
 }
+
+export function randomHex(length: number) {
+  const result = [...Array(length)]
+    .map(() => Math.floor(Math.random() * 16)
+    .toString(16))
+    .join('');
+  // console.log('prefix', result);
+  return result;
+}
